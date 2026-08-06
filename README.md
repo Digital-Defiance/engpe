@@ -1,7 +1,7 @@
 # Edge-Native Genomic Privacy Engine (ENGPE)
 
 CKKS-based Polygenic Risk Score (PRS) calculator for Apple Silicon, built on the
-hardware-in-the-loop FHE sandbox characterised in [`fhe-evolve`](./fhe-evolve)
+hardware-in-the-loop FHE sandbox characterised in [`fhe-evolve`](https://github.com/Digital-Defiance/fhe-evolve)
 (see `fhe-evolve/paper/main.pdf`).
 
 ## Status
