@@ -1,0 +1,371 @@
+
+> engpe@0.1.0 bench
+> tsc && node dist/benchmark.js
+
+Metal: Initialized with Apple M4 Max (40 GPU cores)
+Metal: Max buffer size: 39813 MB
+Metal: Warning - shaders not loaded, GPU compute unavailable
+Metal: Loaded shaders from /Volumes/Code/engpe/native/fhe_shaders.metallib
+Metal: Available kernels: keyswitch_mac_batch modmul_scalar modsub_batch modadd_batch modsub_direct_batch ntt_forward_batch modadd_direct_batch modmul_direct_batch modneg_batch ntt_inverse_stage ntt_inverse_scale ntt_bit_reverse mod_down_batch ntt_twist ntt_to_montgomery modmul_batch ntt_inverse_batch ntt_from_montgomery ntt_forward_stage 
+Metal: Created modmul pipeline (max threads: 1024)
+Metal: Created ntt_forward_stage pipeline
+Metal: Created keyswitch_mac_batch pipeline
+Metal: Created mod_down_batch pipeline
+Metal: NTT pipelines - to_mont:1 bitrev:1 fwd_stage:1 inv_stage:1 inv_scale:1 from_mont:1 twist:1 ks_mac:1
+{
+  "metalAvailable": true,
+  "runs": 3,
+  "patientSweep": [
+    1,
+    4,
+    16,
+    64,
+    128
+  ]
+}
+{
+  "lane": "crt-recombine",
+  "polyDegree": 16384,
+  "medianMs": 0.82425,
+  "minMs": 0.618958,
+  "maxMs": 2.3080000000000003,
+  "targetMs": 10,
+  "withinTarget": true
+}
+{
+  "lane": "cpu-rns-m1",
+  "mode": "sync",
+  "preferMetal": false,
+  "scale": 1099511627776,
+  "patientCount": 1,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 48.26054099999999,
+  "medianAmortizedPerPatientMs": 48.26054099999999,
+  "minTotalMs": 48.233292000000006,
+  "maxTotalMs": 48.673834,
+  "spreadPct": 0.9128409894949036,
+  "samplesMs": [
+    48.26054099999999,
+    48.233292000000006,
+    48.673834
+  ],
+  "lastBackend": "cpu",
+  "lastMaxAbsError": 9.110072696216776e-10,
+  "withinEps1e4": true
+}
+{
+  "lane": "metal-gpu-m1",
+  "mode": "sync",
+  "preferMetal": true,
+  "scale": 1099511627776,
+  "patientCount": 1,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 47.49433299999998,
+  "medianAmortizedPerPatientMs": 47.49433299999998,
+  "minTotalMs": 45.35624999999999,
+  "maxTotalMs": 48.29995799999995,
+  "spreadPct": 6.198019456342211,
+  "samplesMs": [
+    45.35624999999999,
+    48.29995799999995,
+    47.49433299999998
+  ],
+  "lastBackend": "metal",
+  "lastMaxAbsError": 9.110072696216776e-10,
+  "withinEps1e4": true
+}
+{
+  "lane": "cpu-rns-m4",
+  "mode": "sync",
+  "preferMetal": false,
+  "scale": 1099511627776,
+  "patientCount": 4,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 96.43716699999982,
+  "medianAmortizedPerPatientMs": 24.109291749999954,
+  "minTotalMs": 93.03929100000005,
+  "maxTotalMs": 101.86266599999999,
+  "spreadPct": 9.149351100286841,
+  "samplesMs": [
+    101.86266599999999,
+    93.03929100000005,
+    96.43716699999982
+  ],
+  "lastBackend": "cpu",
+  "lastMaxAbsError": 1.1655476583882773e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "metal-gpu-m4",
+  "mode": "sync",
+  "preferMetal": true,
+  "scale": 1099511627776,
+  "patientCount": 4,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 78.45450000000005,
+  "medianAmortizedPerPatientMs": 19.613625000000013,
+  "minTotalMs": 77.25858300000004,
+  "maxTotalMs": 79.92425000000003,
+  "spreadPct": 3.397723521276642,
+  "samplesMs": [
+    79.92425000000003,
+    77.25858300000004,
+    78.45450000000005
+  ],
+  "lastBackend": "metal",
+  "lastMaxAbsError": 1.1655476583882773e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "cpu-rns-m16",
+  "mode": "sync",
+  "preferMetal": false,
+  "scale": 1099511627776,
+  "patientCount": 16,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 279.4652920000003,
+  "medianAmortizedPerPatientMs": 17.46658075000002,
+  "minTotalMs": 279.02104099999997,
+  "maxTotalMs": 282.5262499999999,
+  "spreadPct": 1.2542555731750469,
+  "samplesMs": [
+    279.4652920000003,
+    279.02104099999997,
+    282.5262499999999
+  ],
+  "lastBackend": "cpu",
+  "lastMaxAbsError": 2.3344906452393843e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "metal-gpu-m16",
+  "mode": "sync",
+  "preferMetal": true,
+  "scale": 1099511627776,
+  "patientCount": 16,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 218.86958300000015,
+  "medianAmortizedPerPatientMs": 13.67934893750001,
+  "minTotalMs": 218.43241600000056,
+  "maxTotalMs": 220.10637499999984,
+  "spreadPct": 0.7648202994014407,
+  "samplesMs": [
+    218.86958300000015,
+    220.10637499999984,
+    218.43241600000056
+  ],
+  "lastBackend": "metal",
+  "lastMaxAbsError": 2.3344906452393843e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "cpu-rns-m64",
+  "mode": "sync",
+  "preferMetal": false,
+  "scale": 1099511627776,
+  "patientCount": 64,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 1053.1425,
+  "medianAmortizedPerPatientMs": 16.4553515625,
+  "minTotalMs": 1052.7513340000005,
+  "maxTotalMs": 1060.5999999999995,
+  "spreadPct": 0.7452615386805639,
+  "samplesMs": [
+    1053.1425,
+    1060.5999999999995,
+    1052.7513340000005
+  ],
+  "lastBackend": "cpu",
+  "lastMaxAbsError": 2.419561040412077e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "metal-gpu-m64",
+  "mode": "sync",
+  "preferMetal": true,
+  "scale": 1099511627776,
+  "patientCount": 64,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 896.5009580000005,
+  "medianAmortizedPerPatientMs": 14.007827468750008,
+  "minTotalMs": 887.8362500000003,
+  "maxTotalMs": 907.8283749999991,
+  "spreadPct": 2.2300171373602526,
+  "samplesMs": [
+    896.5009580000005,
+    887.8362500000003,
+    907.8283749999991
+  ],
+  "lastBackend": "metal",
+  "lastMaxAbsError": 2.419561040412077e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "cpu-rns-m128",
+  "mode": "sync",
+  "preferMetal": false,
+  "scale": 1099511627776,
+  "patientCount": 128,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 2134.6055830000005,
+  "medianAmortizedPerPatientMs": 16.676606117187504,
+  "minTotalMs": 2116.0970830000006,
+  "maxTotalMs": 2158.0659589999996,
+  "spreadPct": 1.9661185342266103,
+  "samplesMs": [
+    2134.6055830000005,
+    2116.0970830000006,
+    2158.0659589999996
+  ],
+  "lastBackend": "cpu",
+  "lastMaxAbsError": 2.419561040412077e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "metal-gpu-m128",
+  "mode": "sync",
+  "preferMetal": true,
+  "scale": 1099511627776,
+  "patientCount": 128,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 2304.8058329999985,
+  "medianAmortizedPerPatientMs": 18.00629557031249,
+  "minTotalMs": 2277.1214580000014,
+  "maxTotalMs": 2472.8805409999986,
+  "spreadPct": 8.493517336564175,
+  "samplesMs": [
+    2277.1214580000014,
+    2304.8058329999985,
+    2472.8805409999986
+  ],
+  "lastBackend": "metal",
+  "lastMaxAbsError": 2.419561040412077e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "metal-gpu-async-m16x4",
+  "mode": "async",
+  "preferMetal": true,
+  "patientCount": 16,
+  "nJobs": 4,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 1118.077166,
+  "medianAmortizedPerPatientMs": 17.46995571875,
+  "minTotalMs": 1084.4834999999998,
+  "maxTotalMs": 1234.821416,
+  "lastBackend": "metal",
+  "lastMaxAbsError": 1.2352262324100138e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "encrypted-m1",
+  "mode": "encrypted",
+  "preferMetal": true,
+  "scale": 1099511627776,
+  "patientCount": 1,
+  "snpCount": 512,
+  "polyDegree": 8192,
+  "runs": 2,
+  "medianTotalMs": 133.44366649999938,
+  "medianAmortizedPerPatientMs": 133.44366649999938,
+  "minTotalMs": 130.3962079999983,
+  "maxTotalMs": 136.49112500000047,
+  "spreadPct": 4.567408225404387,
+  "samplesMs": [
+    130.3962079999983,
+    136.49112500000047
+  ],
+  "lastBackend": "metal",
+  "lastMaxAbsError": 1.7105385108351356e-8,
+  "withinEps1e4": true
+}
+{
+  "lane": "encrypted-m2",
+  "mode": "encrypted",
+  "preferMetal": true,
+  "scale": 1099511627776,
+  "patientCount": 2,
+  "snpCount": 512,
+  "polyDegree": 8192,
+  "runs": 2,
+  "medianTotalMs": 140.24104199999783,
+  "medianAmortizedPerPatientMs": 70.12052099999892,
+  "minTotalMs": 139.46341699999903,
+  "maxTotalMs": 141.01866699999664,
+  "spreadPct": 1.1089834885836325,
+  "samplesMs": [
+    141.01866699999664,
+    139.46341699999903
+  ],
+  "lastBackend": "metal",
+  "lastMaxAbsError": 2.247123820353636e-9,
+  "withinEps1e4": true
+}
+{
+  "lane": "cpu-encrypted-full-m1",
+  "mode": "encrypted",
+  "preferMetal": false,
+  "scale": 1099511627776,
+  "patientCount": 1,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 27167.232667000004,
+  "medianAmortizedPerPatientMs": 27167.232667000004,
+  "minTotalMs": 27155.69283300001,
+  "maxTotalMs": 27336.732625000004,
+  "spreadPct": 0.6663902585113304,
+  "samplesMs": [
+    27336.732625000004,
+    27167.232667000004,
+    27155.69283300001
+  ],
+  "lastBackend": "cpu",
+  "lastMaxAbsError": 6.497375153458051e-7,
+  "withinEps1e4": true
+}
+{
+  "lane": "metal-encrypted-full-m1",
+  "mode": "encrypted",
+  "preferMetal": true,
+  "scale": 1099511627776,
+  "patientCount": 1,
+  "snpCount": 110000,
+  "polyDegree": 16384,
+  "runs": 3,
+  "medianTotalMs": 3274.328416000004,
+  "medianAmortizedPerPatientMs": 3274.328416000004,
+  "minTotalMs": 3256.210792000027,
+  "maxTotalMs": 3283.5181250000023,
+  "spreadPct": 0.8339827143342714,
+  "samplesMs": [
+    3274.328416000004,
+    3256.210792000027,
+    3283.5181250000023
+  ],
+  "lastBackend": "metal",
+  "lastMaxAbsError": 5.487273595505826e-7,
+  "withinEps1e4": true
+}

@@ -1,0 +1,1 @@
+{"default":{"identifier":"default","description":"Default offline clinic capabilities (no network)","local":true,"windows":["main"],"permissions":["core:default"]}}

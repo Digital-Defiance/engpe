@@ -1,0 +1,7 @@
+{
+  "$schema": "https://schema.tauri.app/config/2/capability",
+  "identifier": "default",
+  "description": "Default offline clinic capabilities (no network)",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}

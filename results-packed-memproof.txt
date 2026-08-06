@@ -1,0 +1,47 @@
+npm warn exec The following package was not found and will be installed: tsx@4.23.9
+Metal: Initialized with Apple M4 Max (40 GPU cores)
+Metal: Max buffer size: 39813 MB
+Metal: Warning - shaders not loaded, GPU compute unavailable
+Metal: Loaded shaders from /Volumes/Code/engpe/native/fhe_shaders.metallib
+Metal: Available kernels: keyswitch_mac_batch modmul_scalar modsub_batch modadd_batch modsub_direct_batch ntt_forward_batch modadd_direct_batch modmul_direct_batch modneg_batch ntt_inverse_stage ntt_inverse_scale ntt_bit_reverse mod_down_batch ntt_twist ntt_to_montgomery modmul_batch ntt_inverse_batch ntt_from_montgomery ntt_forward_stage 
+Metal: Created modmul pipeline (max threads: 1024)
+Metal: Created ntt_forward_stage pipeline
+Metal: Created keyswitch_mac_batch pipeline
+Metal: Created mod_down_batch pipeline
+Metal: NTT pipelines - to_mont:1 bitrev:1 fwd_stage:1 inv_stage:1 inv_scale:1 from_mont:1 twist:1 ks_mac:1
+{
+  "mode": "patient-packed-synthetic-stream",
+  "preferMetal": true,
+  "note": "Genotypes generated inside Rust; only accumulator + 2 live CTs.",
+  "rows": [
+    {
+      "patients": 1146,
+      "snpCount": 512,
+      "polyDegree": 8192,
+      "wallMs": 46733.113999999994,
+      "msPerPatient": 40.77933158813263,
+      "encryptMs": 30577.225751000013,
+      "evalMs": 14330.148582000013,
+      "decryptMs": 5.324,
+      "ciphertexts": 512,
+      "maxAbsError": 0.000003323277317042331,
+      "rssAfterMiB": 388,
+      "rssDeltaMiB": 303
+    },
+    {
+      "patients": 1146,
+      "snpCount": 2000,
+      "polyDegree": 8192,
+      "wallMs": 177192.034084,
+      "msPerPatient": 154.61783078883073,
+      "encryptMs": 121091.33709400018,
+      "evalMs": 56087.461352000086,
+      "decryptMs": 5.137167,
+      "ciphertexts": 2000,
+      "maxAbsError": 0.000005340362627164787,
+      "rssAfterMiB": 1402.5,
+      "rssDeltaMiB": 1014.4
+    }
+  ],
+  "rssGrewWithSnps": 1014.5
+}

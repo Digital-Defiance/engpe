@@ -1,0 +1,46 @@
+npm warn exec The following package was not found and will be installed: tsx@4.23.9
+Metal: Initialized with Apple M4 Max (40 GPU cores)
+Metal: Max buffer size: 39813 MB
+Metal: Warning - shaders not loaded, GPU compute unavailable
+Metal: Loaded shaders from /Volumes/Code/engpe/native/fhe_shaders.metallib
+Metal: Available kernels: keyswitch_mac_batch modmul_scalar modsub_batch modadd_batch modsub_direct_batch ntt_forward_batch modadd_direct_batch modmul_direct_batch modneg_batch ntt_inverse_stage ntt_inverse_scale ntt_bit_reverse mod_down_batch ntt_twist ntt_to_montgomery modmul_batch ntt_inverse_batch ntt_from_montgomery ntt_forward_stage 
+Metal: Created modmul pipeline (max threads: 1024)
+Metal: Created ntt_forward_stage pipeline
+Metal: Created keyswitch_mac_batch pipeline
+Metal: Created mod_down_batch pipeline
+Metal: NTT pipelines - to_mont:1 bitrev:1 fwd_stage:1 inv_stage:1 inv_scale:1 from_mont:1 twist:1 ks_mac:1
+{
+  "panel": "HEPRS example 10k×50",
+  "polyDegree": 8192,
+  "preferMetal": true,
+  "samples": [
+    {
+      "wallMs": 15712.477791000001,
+      "encryptMs": 143.4455,
+      "evalMs": 10907.391583,
+      "decryptMs": 0,
+      "backend": "metal"
+    },
+    {
+      "wallMs": 10187.027291,
+      "encryptMs": 143.886875,
+      "evalMs": 10041.393209,
+      "decryptMs": 0,
+      "backend": "metal"
+    },
+    {
+      "wallMs": 10420.758040999997,
+      "encryptMs": 146.972459,
+      "evalMs": 10272.004083,
+      "decryptMs": 0,
+      "backend": "metal"
+    }
+  ],
+  "warm": {
+    "wallMs": 10420.758040999997,
+    "encryptMs": 146.972459,
+    "evalMs": 10272.004083,
+    "decryptMs": 0,
+    "backend": "metal"
+  }
+}

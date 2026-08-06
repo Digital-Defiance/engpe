@@ -1,0 +1,11 @@
+Using post-quantum parameters...
+Alloc = 1 MiB	TotalAlloc = 1 MiB	HeapSys = 7 MiB	NumGC = 0
+Input Encrypt success
+Alloc = 284 MiB	TotalAlloc = 638 MiB	HeapSys = 407 MiB	NumGC = 10
+Model Encrypt success
+Alloc = 295 MiB	TotalAlloc = 648 MiB	HeapSys = 407 MiB	NumGC = 10
+Run model success
+Alloc = 68 MiB	TotalAlloc = 970 MiB	HeapSys = 407 MiB	NumGC = 13
+Decrypt success
+Alloc = 41 MiB	TotalAlloc = 1105 MiB	HeapSys = 407 MiB	NumGC = 18
+{"schema":"1","kind":"run","command":"go run main.go example_data/genotype_10kSNP_50individual.csv example_data/beta_10kSNP_phenotype0.csv phenotype0 1 1 50 -pq -print","exit_code":0,"elapsed_secs":1.833899,"start_bd":9714.436045,"end_bd":9714.436067,"tracked_gpu_pid":70618,"chip":{"brand":"Apple M4 Max","family":"m4","validation_tier":"validated","validated_metrics":true},"metrics":{"gpu":{"avg":0.000000,"peak":0.000000,"samples":26},"cmd_gpu":{"avg":0.000000,"peak":0.000000,"samples":26},"cpu":{"avg":17.031935,"peak":34.042553,"samples":26},"memory":{"avg":48.968533,"peak":50.621152,"samples":26},"gpu_mem_in_use":{"avg":2312839798.153846,"peak":2326364160.000000,"samples":26},"gpu_mem_allocated":{"avg":5219658200.615385,"peak":5223645184.000000,"samples":26},"renderer":{"avg":0.000000,"peak":0.000000,"samples":26},"tiler":{"avg":0.000000,"peak":0.000000,"samples":26},"gpu_freq_mhz":{"avg":338.000000,"peak":338.000000,"samples":26},"gpu_power_w":{"avg":0.436925,"peak":0.489240,"samples":25},"cpu_power_w":{"avg":6.946259,"peak":10.577260,"samples":25},"dram_power_w":{"avg":1.228678,"peak":1.560889,"samples":25},"ecpu_power_w":{"avg":0.199084,"peak":0.589445,"samples":25},"pcpu_power_w":{"avg":6.746536,"peak":9.987815,"samples":25},"gpu_throttle":{"pct":0.000000,"throttled_samples":0,"samples":26},"mem_wired":{"avg":6360814513.230769,"peak":6629310464.000000,"samples":26},"mem_compressed":{"avg":10144334454.153849,"peak":10144514048.000000,"samples":26},"mem_swap":{"avg":1057161216.000000,"peak":1057161216.000000,"samples":26},"mem_pressure":{"avg":0.000000,"peak":0.000000,"samples":26}}}

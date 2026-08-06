@@ -1,0 +1,46 @@
+Metal: Initialized with Apple M4 Max (40 GPU cores)
+Metal: Max buffer size: 39813 MB
+Metal: Loaded shaders from /Volumes/Code/engpe/native/fhe_shaders.metallib
+Metal: Available kernels: keyswitch_mac_batch modmul_scalar modsub_batch modadd_batch modsub_direct_batch ntt_forward_batch modadd_direct_batch modmul_direct_batch modneg_batch ntt_inverse_stage ntt_inverse_scale ntt_bit_reverse mod_down_batch ntt_twist ntt_to_montgomery modmul_batch ntt_inverse_batch ntt_from_montgomery ntt_forward_stage 
+Metal: Created modmul pipeline (max threads: 1024)
+Metal: Created ntt_forward_stage pipeline
+Metal: Created keyswitch_mac_batch pipeline
+Metal: Created mod_down_batch pipeline
+Metal: NTT pipelines - to_mont:1 bitrev:1 fwd_stage:1 inv_stage:1 inv_scale:1 from_mont:1 twist:1 ks_mac:1
+{
+  "comparison": "HEPRS example_data head-to-head (this machine)",
+  "panel": {
+    "patients": 50,
+    "features": 10001,
+    "polyDegree": 8192
+  },
+  "engpe": {
+    "weights": "encrypted (ct×ct + relin)",
+    "backend": "metal",
+    "preferMetal": true,
+    "coldMs": 6629.3134580000005,
+    "warmMedianMs": 4398.065041,
+    "msPerPatientWarm": 87.96130081999999,
+    "maxAbsErrorVsPlainOracle": 0.0000030254193739143176,
+    "rssAfterMiB": 1475.1,
+    "rssDeltaMiB": 1374.5
+  },
+  "heprsLocal": {
+    "PN12QP125": {
+      "wallMs": 770,
+      "heapSysMiB": 227,
+      "note": "param 0, N=4096"
+    },
+    "PN13QP202pq": {
+      "wallMs": 1432,
+      "heapSysMiB": 403,
+      "note": "param 1, N=8192"
+    }
+  },
+  "paramGap": {
+    "engpeLogQ": 124,
+    "heprsLogQP_PN13": 202,
+    "note": "ENGPE keeps |Q|≈124 in u128 CRT; PRS is depth-1 so 202 is not required for correctness, but is not parameter-matched."
+  }
+}
+{"schema":"1","kind":"run","command":"npx tsx src/heprs-headtohead.ts","exit_code":0,"elapsed_secs":17.826350,"start_bd":9714.435839,"end_bd":9714.436045,"tracked_gpu_pid":70210,"chip":{"brand":"Apple M4 Max","family":"m4","validation_tier":"validated","validated_metrics":true},"metrics":{"gpu":{"avg":0.000000,"peak":0.000000,"samples":278},"cmd_gpu":{"avg":0.000000,"peak":0.000000,"samples":278},"cpu":{"avg":55.686060,"peak":100.000000,"samples":278},"memory":{"avg":49.321088,"peak":50.621152,"samples":278},"gpu_mem_in_use":{"avg":2535131622.215828,"peak":2794029056.000000,"samples":278},"gpu_mem_allocated":{"avg":5929529491.338129,"peak":6634684416.000000,"samples":278},"renderer":{"avg":0.000000,"peak":0.000000,"samples":278},"tiler":{"avg":0.000000,"peak":0.000000,"samples":278},"gpu_freq_mhz":{"avg":338.000000,"peak":338.000000,"samples":278},"gpu_power_w":{"avg":0.805068,"peak":1.331390,"samples":277},"cpu_power_w":{"avg":14.672180,"peak":37.226109,"samples":277},"dram_power_w":{"avg":1.209907,"peak":2.312537,"samples":277},"ecpu_power_w":{"avg":0.348882,"peak":0.916287,"samples":277},"pcpu_power_w":{"avg":14.323280,"peak":36.325352,"samples":277},"gpu_throttle":{"pct":0.000000,"throttled_samples":0,"samples":278},"mem_wired":{"avg":6499318393.553959,"peak":6753304576.000000,"samples":278},"mem_compressed":{"avg":10144719201.611515,"peak":10144858112.000000,"samples":278},"mem_swap":{"avg":1057161216.000000,"peak":1057161216.000000,"samples":278},"mem_pressure":{"avg":0.000000,"peak":0.000000,"samples":278}}}

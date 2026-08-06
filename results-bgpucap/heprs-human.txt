@@ -1,0 +1,29 @@
+Using post-quantum parameters...
+Alloc = 1 MiB	TotalAlloc = 1 MiB	HeapSys = 7 MiB	NumGC = 0
+Input Encrypt success
+Alloc = 284 MiB	TotalAlloc = 638 MiB	HeapSys = 383 MiB	NumGC = 10
+Model Encrypt success
+Alloc = 295 MiB	TotalAlloc = 648 MiB	HeapSys = 383 MiB	NumGC = 10
+Run model success
+Alloc = 62 MiB	TotalAlloc = 970 MiB	HeapSys = 383 MiB	NumGC = 14
+Decrypt success
+Alloc = 23 MiB	TotalAlloc = 1106 MiB	HeapSys = 383 MiB	NumGC = 20
+2026/08/06 15:27:51 The program PN13QP202pq took 1.433139458s
+
+gpu        avg 0.0%     peak 0.0%    
+gpu-pid    pid 72100 avg 0.0%     peak 0.0%    
+cpu        avg 20.1%    peak 39.4%   
+memory     avg 49.0%    peak 50.7%   
+gpu-mem    in use avg 2.4 GiB  peak 2.5 GiB 
+renderer   avg 0.0%     peak 0.0%    
+tiler      avg 0.0%     peak 0.0%    
+gpu-mhz    avg 338 MHz  peak 338 MHz 
+gpu-pwr    avg 0 W      peak 1 W     
+cpu-pwr    avg 8 W      peak 13 W    
+dram-pwr   avg 1 W      peak 2 W     
+e-pwr      avg 0 W      peak 1 W     
+p-pwr      avg 8 W      peak 13 W    
+wired      avg 6.1 GiB  peak 6.3 GiB 
+compress   avg 9.4 GiB  peak 9.4 GiB 
+swap       avg 1008 MiB peak 1008 MiB
+real       1.822339 s

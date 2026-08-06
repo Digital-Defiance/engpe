@@ -1,0 +1,63 @@
+npm warn exec The following package was not found and will be installed: tsx@4.23.9
+Metal: Initialized with Apple M4 Max (40 GPU cores)
+Metal: Max buffer size: 39813 MB
+Metal: Warning - shaders not loaded, GPU compute unavailable
+Metal: Loaded shaders from /Volumes/Code/engpe/native/fhe_shaders.metallib
+Metal: Available kernels: keyswitch_mac_batch modmul_scalar modsub_batch modadd_batch modsub_direct_batch ntt_forward_batch modadd_direct_batch modmul_direct_batch modneg_batch ntt_inverse_stage ntt_inverse_scale ntt_bit_reverse mod_down_batch ntt_twist ntt_to_montgomery modmul_batch ntt_inverse_batch ntt_from_montgomery ntt_forward_stage 
+Metal: Created modmul pipeline (max threads: 1024)
+Metal: Created ntt_forward_stage pipeline
+Metal: Created keyswitch_mac_batch pipeline
+Metal: Created mod_down_batch pipeline
+Metal: NTT pipelines - to_mont:1 bitrev:1 fwd_stage:1 inv_stage:1 inv_scale:1 from_mont:1 twist:1 ks_mac:1
+{
+  "comparison": "HEPRS example_data head-to-head (this machine)",
+  "panel": {
+    "patients": 50,
+    "features": 10001,
+    "polyDegree": 8192
+  },
+  "engpe": {
+    "weights": "encrypted (ct×ct + relin)",
+    "backend": "metal",
+    "preferMetal": true,
+    "coldMs": 15866.979207999999,
+    "warmMedianMs": 10525.282958,
+    "msPerPatientWarm": 210.50565916,
+    "maxAbsErrorVsPlainOracle": 0.0000020960819374082895,
+    "rssAfterMiB": 2733.1,
+    "rssDeltaMiB": 2632.8
+  },
+  "heprsLocal": {
+    "PN12QP125": {
+      "wallMs": 770,
+      "heapSysMiB": 227,
+      "note": "param 0, N=4096; this M4 Max"
+    },
+    "PN13QP202pq": {
+      "wallMs": 1410,
+      "heapSysMiB": 387,
+      "note": "param 1, N=8192; this M4 Max"
+    }
+  },
+  "bgpucapSignal": {
+    "engpe": {
+      "realS": 18.2,
+      "cpuAvgPct": 55.3,
+      "cpuPeakPct": 100,
+      "gpuAvgPct": 0,
+      "note": "includes 3 warm reps + npx"
+    },
+    "heprsPn13": {
+      "realS": 1.83,
+      "cpuAvgPct": 21,
+      "cpuPeakPct": 33.1,
+      "gpuAvgPct": 0
+    }
+  },
+  "paramGap": {
+    "engpeLogQ": 124,
+    "heprsLogQP_PN13": 202,
+    "matched": "N=8192 ring dimension + ct×ct + hoisted InnerSumLog",
+    "unmatched": "|Q|≈124 vs log2(QP)=202 (ENGPE CRT product lives in u128)"
+  }
+}

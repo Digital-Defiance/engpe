@@ -1,0 +1,24 @@
+node_modules/
+dist/
+native.node
+native/target/
+*.dylib
+.DS_Store
+*.log
+data/*.bin
+!data/.gitkeep
+upstream/PN*_dir_*/
+heprs-upstream/mem_*.csv
+heprs-upstream/time_*.csv
+
+# LaTeX build artifacts (keep paper.tex / paper.bib / paper.pdf)
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.out
+*.synctex.gz
+*.toc
+*.lof
+*.lot

@@ -1,0 +1,799 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Encoding & fonts ---
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% --- Layout ---
+\usepackage[margin=1in]{geometry}
+\usepackage{setspace}
+\setstretch{1.08}
+\usepackage{parskip}
+
+% --- Math ---
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{bm}
+
+% --- Tables & figures ---
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{makecell}
+\usepackage{graphicx}
+\usepackage{caption}
+\captionsetup{font=small,labelfont=bf}
+
+% --- Code / paths ---
+\usepackage{xurl}
+\usepackage{xcolor}
+\newcommand{\engpe}{\texttt{ENGPE}}
+% Robust monospace (safe in captions).
+\DeclareRobustCommand{\code}[1]{\texttt{#1}}
+\DeclareRobustCommand{\file}[1]{\texttt{#1}}
+
+% --- Links & citations ---
+\usepackage[numbers,sort&compress]{natbib}
+\usepackage[hidelinks]{hyperref}
+\usepackage{doi}
+% Breakable variant for long identifiers (after hyperref so \url is link-aware).
+\newcommand{\longcode}[1]{{\urlstyle{tt}\nolinkurl{#1}}}
+
+\hypersetup{
+  pdftitle={Edge-Native Genomic Privacy: Ring Evaluation and True RLWE Polygenic Risk Scores on Apple Silicon},
+  pdfauthor={Digital Defiance},
+  pdfsubject={ENGPE / HEPRS comparison},
+  pdfkeywords={FHE, CKKS, PRS, Apple Silicon, HEPRS}
+}
+
+% --- Misc ---
+\usepackage{enumitem}
+\setlist[itemize]{leftmargin=1.4em,itemsep=0.25em,topsep=0.4em}
+\setlist[enumerate]{leftmargin=1.4em,itemsep=0.25em,topsep=0.4em}
+
+\title{%
+  Edge-Native Genomic Privacy:\\
+  Ring Evaluation and True RLWE Polygenic Risk Scores\\
+  on Apple Silicon}
+\author{Digital Defiance}
+\date{August 2026}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Fully Homomorphic Encryption (FHE) enables privacy-preserving genomic diagnostics,
+but practical edge deployment requires a clear accounting of which costs are
+cryptographic and which are merely arithmetic. We present \engpe{} (Edge-Native
+Genomic Privacy Engine), an RNS-CKKS polygenic risk score (PRS) stack for Apple
+Silicon (M4 Max) that exposes two deliberately separated pipelines. The
+\textbf{Ring Evaluation Engine} performs CKKS encode~/~negacyclic NTT~/~CRT~/~decode
+over plaintext ring elements and, at polynomial degree $N = 16384$ and scale
+$\Delta = 2^{40}$, amortizes a 110{,}000-SNP evaluation to \textbf{13.7\,ms per
+patient} at its best operating point ($M = 16$, Metal GPU lane). The
+\textbf{Cryptographic FHE Engine} adds true RLWE KeyGen, encryption of genotypes
+\textit{and} weights, ciphertext$\times$ciphertext multiplication with
+relinearization, and hybrid Galois key-switching with a fused Metal Digit-NTT
+$\to$ KS-MAC $\to$ INTT command buffer, under a \textbf{HEPRS-matched modulus
+budget} of seven Metal-eligible limbs ($|Q| = 217$ bits at $N = 8192$, inside the
+HE Standard ceiling of 218). An offline Tauri clinic application exercises the
+stack without network I/O.
+
+Against the HE-PRS baseline of Knight~\textit{et~al.}~\cite{knight2026heprs}, we
+match algorithm structure \textbf{and} the $\log_2(QP)\approx 202$ depth budget
+(Metal-compatible primes; see Section~\ref{sec:security} and
+\file{PARAMETERS.md}), and measure on the same machine as a local rebuild of their
+MIT example (10{,}001 features $\times$ 50 individuals, $N = 8192$). Their
+\code{PN13QP202pq} build on this M4 Max finishes in \textbf{1.41\,s}; warm
+\engpe{} finishes the same panel with fidelity at file-rounding
+($r = 0.999999999$; Section~\ref{sec:crossval}). On-device memory remains the
+deployment claim: streamed patient packing keeps $\sim$1{,}146-patient cohorts near
+\textbf{0.4--1.4\,GB} rather than materialising $\sim$9\,GB.
+
+Every claim is backed by an executable gate. The audit that produced this revision
+found and fixed a silent evaluation-key aliasing defect
+(Section~\ref{sec:fused}), a schoolbook $O(N^2)$ ring multiply that accounted for
+90\% of encrypted runtime (Section~\ref{sec:encrypted-time}), a rotate-and-sum that
+was incorrectly applied once per ciphertext rather than once per individual
+(Section~\ref{sec:hoist}), and an i128 overflow in relinearization-key generation
+that silently destroyed ct$\times$ct precision at production degrees.
+\end{abstract}
+
+%==============================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Polygenic Risk Scores (PRS) aggregate genotype dosages across hundreds of
+thousands of Single Nucleotide Polymorphisms (SNPs). Clinical use is constrained
+by privacy: sending raw genotypes to a remote server is often unacceptable under
+regulatory and ethical constraints.
+
+CKKS-style approximate arithmetic can evaluate a PRS as a slot-wise product
+followed by a horizontal sum. Two layers must not be conflated:
+\begin{enumerate}
+  \item \textbf{Ring evaluation} --- canonical embedding, negacyclic NTT multiply,
+        CRT recombination, and decode --- which validates the arithmetic engine and
+        saturates Metal batch NTTs over unified memory.
+  \item \textbf{True FHE} --- RLWE ciphertexts $(c_0, c_1)$ under a ternary secret,
+        with noise, and with key-switching after every Galois automorphism used in
+        rotate-and-sum.
+\end{enumerate}
+
+Prior drafts of this work incorrectly attributed ring-engine throughput to
+``FHE'' and extrapolated unverified cohort wall-clock times. This revision reports
+only measured figures and names the two modes explicitly.
+
+\paragraph{Prior work.}
+Knight, Li, Jensen, Gerstein~\textit{et~al.}~\cite{knight2026heprs} demonstrated
+end-to-end homomorphically encrypted PRS on real clinical data, evaluating a
+110{,}000-SNP schizophrenia model across a $\sim$1{,}100-patient cohort in
+approximately six minutes using $\sim$65\,GB of memory for the core PRS
+calculation. That result established the clinical viability of HE-PRS and is the
+baseline against which \engpe{} should be read. \engpe{} targets a different point
+in the design space --- a single consumer device rather than a large-memory server
+--- and Section~\ref{sec:heprs} compares the two on matched algorithm structure and
+on their released example cohort.
+
+%==============================================================================
+\section{System Architecture}
+\label{sec:arch}
+
+\engpe{} targets the Apple M4 Max (performance CPU cluster + 40-core Metal GPU,
+unified memory). Both pipelines use Metal-eligible RNS primes $q_i < 2^{31}$ with
+$q_i \equiv 1 \pmod{2N}$. The \textbf{ring} path keeps four limbs
+($|Q|\approx 124$ bits) for throughput. The \textbf{encrypted} path uses
+\textbf{seven} limbs ($|Q| = 217$ bits), matching the HEPRS \code{PN13QP202pq}
+depth budget under the Metal prime-width constraint; coefficients live in
+\code{ethnum::U256}. Flat \code{Float64Array} FFI packs $M$ genotype panels and
+$D$ disease weight panels for a single native call.
+
+% Match markdown numbering (2.0 …); first subsection of this section is 2.0.
+\setcounter{subsection}{-1}
+
+%------------------------------------------------------------------------------
+\subsection{Security parameters and threat model}
+\label{sec:security}
+
+Two parameter sets share the same noise model --- uniform ternary $s$,
+$\mathrm{CBD}(\eta = 20)$ so $\sigma \approx 3.16$ --- and differ only in limb
+count:
+
+\begin{table}[ht]
+\centering
+\caption{Parameter sets used by the ring and encrypted pipelines.}
+\label{tab:params}
+\small
+\begin{tabular}{@{}lrrrrl@{}}
+\toprule
+Path & $N$ (typical) & Limbs & $\|Q\|$ & HE ceiling & Role \\
+\midrule
+Ring evaluation & 16384 & 4 & $\approx$124 & 438 & plaintext CKKS math \\
+Encrypted FHE   & 8192~/~16384 & \textbf{7} & \textbf{217} & 218~/~438 & HEPRS-matched depth \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Lattigo's \code{PN13QP202pq} uses $\log_2(QP)\approx 202$ with some primes above
+$2^{31}$, which Metal NTT kernels reject. We therefore match the \textbf{budget},
+not the bit-identical prime list (\file{PARAMETERS.md}, gate
+\longcode{fhe_basis_matches_heprs_qp_budget}). At $N = 8192$, $|Q| = 217$ sits
+\textbf{one bit inside} the classical 128-bit ceiling of 218; we report the
+envelope rather than a lattice-estimator $\lambda$.
+
+Reduced-degree configurations with a too-large modulus relative to $N$ remain
+rejected by \code{require\_secure\_degree}. An audit gate asserts production sets
+are inside the envelope and that reduced degrees are flagged outside it.
+
+\paragraph{Threat model.}
+This matters because \engpe{} runs every stage on one device, and FHE buys nothing
+against an adversary who already holds the key. Both genotypes and model weights
+are encrypted under the clinic's public key ($\mathrm{ct}\times\mathrm{ct}$ with
+relinearization), matching the cryptographic shape of~\cite{knight2026heprs}'s
+evaluator path, while the deployment remains on-device rather than three-party. The
+adversary modelled is a compromised or observed \textit{evaluation host} that sees
+only ciphertexts; the clinic holds the secret key. The contribution is therefore
+that the evaluator role, which in~\cite{knight2026heprs} requires a $\sim$65\,GB
+server, fits in under 1\,GB on hardware the data owner can physically control.
+Evaluation keys (Galois + relinearization) are memoised per degree for the process
+lifetime, so all patients handled by one process share an RLWE key --- acceptable
+on-device, not acceptable in a multi-tenant deployment.
+
+%------------------------------------------------------------------------------
+\subsection{Ring Evaluation Engine (plaintext CKKS math)}
+\label{sec:ring}
+
+Host Rayon threads encode real slots via the canonical embedding and
+CRT-decompose coefficients into four limbs. Each limb is multiplied with a
+negacyclic NTT (Metal when available, else CPU). Products are recombined and
+horizontally summed (Galois rotate-and-sum on the wide residue polynomial), then
+decoded. Multi-disease SIMD broadcasts one patient genotype across $D$ plaintext
+weight vectors in the transform domain without re-encoding the genotype.
+
+%------------------------------------------------------------------------------
+\subsection{Cryptographic FHE Engine (true RLWE)}
+\label{sec:fhe}
+
+The FHE path adds:
+\begin{itemize}
+  \item a CSPRNG (\code{getrandom}) for keys and noise;
+  \item ternary secret keys $s \leftarrow \{-1,0,1\}^N$;
+  \item centered-binomial error $\mathrm{CBD}(\eta=20)$ ($\sigma \approx 3.16$);
+  \item uniform $a \leftarrow U(R_Q)$;
+  \item public-key encryption to 2-element ciphertexts $(c_0, c_1)$ for both
+        genotypes and weights;
+  \item ciphertext$\times$ciphertext multiplication with digit-decomposed
+        relinearization of $s^2$ (HEPRS \code{MulRelinNew});
+  \item hybrid digit-decomposition Galois evaluation keys and fused Metal
+        key-switching after each rotate-and-sum automorphism
+        (Section~\ref{sec:ks}).
+\end{itemize}
+
+%------------------------------------------------------------------------------
+\subsection{CRT recombination optimization}
+\label{sec:crt}
+
+Profiling showed CRT recombination consuming the majority of ring-engine wall time
+when implemented as bit-serial double-and-add modular multiplication ($\sim$673\,ms
+to recombine one degree-$16384$ polynomial). The present implementation uses
+128-bit widening multiply, reduction via precomputed $2^{128} \bmod Q$, and
+precomputed CRT weights $w_i = (Q_i \cdot \hat{y}_i) \bmod Q$, with coefficients
+recombined in parallel. The \code{crt-recombine} microbench in
+\file{results-v3.txt} reports a median of \textbf{0.82\,ms} at $N = 16384$
+(min 0.62\,ms, max 2.31\,ms), inside the 10\,ms engineering target.
+
+%------------------------------------------------------------------------------
+\subsection{Asynchronous double-buffering}
+\label{sec:async}
+
+A bounded \code{sync\_channel(1)} overlaps host encode+CRT preparation of cohort
+$N{+}1$ with limb NTT evaluation of cohort $N$. Correctness is gated by
+bit-identical comparison (\code{f64::to\_bits}) against the synchronous path. After
+the CRT fix, host prep is a small fraction of total time; overlap remains correct
+but yields limited additional throughput on the ring engine.
+
+%==============================================================================
+\section{Galois Key-Switching: Hybrid Digits and Fused Metal Dispatch}
+\label{sec:ks}
+
+Horizontal summation in CKKS applies $\log_2(N/2)$ automorphisms
+$\varphi_k\colon X \mapsto X^k$ with $k = 5^{2^i} \bmod 2N$. For $N = 16384$ this
+is \textbf{13} steps. On a ciphertext $(c_0, c_1)$ encrypted under $s$,
+$\varphi_k$ produces a ciphertext under $\varphi_k(s)$. Returning to basis $s$
+requires a key-switch: decompose $c_1$ into base-$B$ digits and multiply by
+evaluation-key components that encrypt $B^j \cdot \varphi_k(s)$.
+
+%------------------------------------------------------------------------------
+\subsection{Hybrid digit width and auxiliary modulus \texorpdfstring{$P$}{P}}
+\label{sec:hybrid}
+
+Phase~5 widens the gadget base from $B = 2^{10}$ (13 digits at
+$\|Q\|\approx 124$ bits) to \textbf{$B = 2^{20}$ (7 digits)}, cutting the number
+of digit NTTs and EVK MACs per rotation by nearly half. An auxiliary
+Metal-eligible special modulus $P$ (one prime $p < 2^{31}$, co-prime to all
+$q_i$) is generated alongside evaluation keys for hybrid modulus-raising~/~mod-down.
+Exact RNS mod-down $y_i = (x_i - x_P)\cdot P^{-1} \bmod q_i$ is implemented and
+gated, and a \code{mod\_down\_batch} Metal kernel scales residues by $P^{-1}$.
+
+To be explicit rather than let a reader infer otherwise: \textbf{the extended $PQ$
+hybrid path is built and tested but not engaged in production.} The shipped FHE
+circuit already runs under a HEPRS-matched $|Q| = 217$-bit Metal basis
+(\code{FHE\_RNS\_LIMBS = 7}, \code{U256} residues); Stage-D mod-down remains
+infrastructure for deeper circuits, not a component of the reported latencies. The
+auxiliary modulus is generated with every evaluation-key set and its correctness is
+gated.
+
+The wider gadget is not free, and the cost is stated here rather than left
+implicit. Key-switch noise grows linearly in $B$, so moving from $2^{10}$ to
+$2^{20}$ raises it by about $2^{10}$. Measured directly by encrypting zero and
+reading the decrypted phase
+(\code{audit\_keyswitch\_noise\_budget\_is\_measured}), at $N = 1024$ and
+$\|Q\| \approx 124$ bits the fresh-ciphertext noise is $\approx 2^{8}$ and the
+post-key-switch noise is $\approx 2^{28}$ --- exactly the predicted factor of $B$.
+Relative to the working scale this is $\approx 1.3\times 10^{-4}$ at
+$\Delta = 2^{40}$ but only $\approx 1.3\times 10^{-16}$ at $\Delta^{2} = 2^{80}$.
+The PRS circuit key-switches \textit{after} the ciphertext$\times$ciphertext
+multiply (and relinearization), i.e.\ at $\Delta^{2}$, so the wider gadget is
+absorbed with roughly 80 bits of headroom under $Q$. Circuits that rotate at
+$\Delta$ rather than $\Delta^{2}$ would need either a narrower $B$ or a larger
+$\Delta$; this is a property of the circuit, not of the engine.
+
+A note on rotation semantics, since it is easy to misread the code: slots here are
+indexed in the \textbf{natural} embedding order
+$\zeta_j = \exp(i\pi(2j+1)/N)$, not the canonical power-of-5 order. Under that
+labelling $\varphi_5$ is the permutation
+$j \mapsto ((5(2j+1) \bmod 2N) - 1)/2$ folded through conjugate symmetry, which is
+\textit{not} a one-position cyclic shift. Rotate-and-sum is unaffected --- it sums
+the full orbit, and the PRS dot product is permutation-invariant --- but a reader
+expecting a cyclic shift will misjudge the rotation gate. The permutation is
+asserted explicitly in
+\code{audit\_galois\_keyswitch\_performs\_real\_rotation}.
+
+%------------------------------------------------------------------------------
+\subsection{Fused GPU command buffer}
+\label{sec:fused}
+
+Earlier Phase~4 work showed that separate Metal submits for digit NTT, KS MAC, and
+INTT \textit{degraded} full-panel latency ($\sim$105\,s) due to sync overhead,
+while CPU digit NTT + Metal MAC alone reached $\sim$30\,s. Phase~5 encodes the full
+limb pipeline into a \textbf{single \code{MTLCommandBuffer}} with one
+\code{waitUntilCompleted}:
+\begin{enumerate}
+  \item \textbf{Stage A} --- batch forward negacyclic NTT on decomposed digits
+        (resident GPU buffer; not read back mid-pipeline).
+  \item \textbf{Stage B} --- \code{keyswitch\_mac\_batch} against resident EVK
+        \code{MTLBuffer}s (both $b$ and $a$ components).
+  \item \textbf{Stage C} --- inverse NTT on each accumulator.
+  \item \textbf{Stage D} --- optional \code{mod\_down\_batch} when operating on the
+        extended $PQ$ basis.
+\end{enumerate}
+
+Galois EVKs remain NTT-transformed once at cold start and held resident on both
+host and GPU. Cache entries are keyed by
+$(N, k, \mathrm{fingerprint}, \mathrm{limb}, \mathrm{component})$, where the
+fingerprint is an FNV-1a digest of the evaluation-key material itself.
+
+The key identity matters. An earlier revision keyed only on
+$(N, k, \mathrm{limb}, \mathrm{component})$, so two \textit{distinct} Galois keys
+sharing a degree and rotation step aliased to the same cache entry: the second
+key-switched under the first key's evaluation material and returned garbage with no
+error raised. The precise blast radius is worth stating, because it is narrower
+than it first appears and we would rather understate it. The shipped evaluation path
+memoises one \code{EvaluationKeys} per degree in a process-global cache
+(\code{eval\_keys\_cached}) and never regenerates it, so the current clinic flow
+only ever holds one key set per $N$ and does not trigger the alias. What did
+trigger it was the test suite, where independent gates each generate their own keys
+--- four gates failed together while every one of them passed in isolation, which
+is how the defect surfaced. It is also reachable by any consumer of the public
+\code{crypto} API that generates its own keys, and it would become reachable in
+production the moment per-session or per-patient re-keying is introduced, which is
+a natural next step for this system. A silent wrong-answer failure mode that is
+latent rather than active is still a publication blocker.
+
+The fix makes the alias unrepresentable rather than merely unlikely, and
+\longcode{audit_distinct_galois_keys_do_not_alias_in_evk_cache} key-switches
+under three independent key sets on both backends as a regression gate. The cache
+is now bounded and flushed on both host and GPU when full, so re-keying cannot grow
+resident \code{MTLBuffer} memory without limit. Bit-identical gates require Metal
+fused KS to match the CPU oracle on $c_0$/$c_1$ limbs before encrypted evaluation
+proceeds.
+
+One related property should be explicit for a security reader: because evaluation
+keys are memoised per degree for the lifetime of the process, every patient
+evaluated by a given process is handled under the \textit{same} RLWE key. For
+on-device edge evaluation, where the data owner also holds the key, this is a
+reasonable default. It would not be acceptable in a multi-tenant or server-side
+deployment, and the fingerprinted cache is a prerequisite for making per-session
+keys safe.
+
+%==============================================================================
+\section{Empirical Results}
+\label{sec:results}
+
+All figures below are from a single post-hoist benchmark run
+(\file{results-v4.txt}) on an idle Apple M4 Max. Parameters: $N = 16384$, $k{=}4$
+RNS limbs, $\Delta = 2^{40}$, 110{,}000 SNPs unless noted. Every lane is a
+configuration inside the 128-bit security envelope (Section~\ref{sec:security}).
+Encrypted lanes report three repetitions with observed spread; the
+\code{crt-recombine} microbench reports a median of 0.78\,ms at $N = 16384$.
+
+\begin{table}[ht]
+\centering
+\caption{Ring Evaluation Engine, amortized ms/patient ($N{=}16384$, 110k SNPs).}
+\label{tab:ring}
+\small
+\begin{tabular}{@{}rrrrr@{}}
+\toprule
+Cohort $M$ & Metal total (ms) & Metal ms/pt & CPU RNS ms/pt & $\max\|\varepsilon\|$ \\
+\midrule
+1   & 47.9  & 47.91 & 51.17 & $9.1\times10^{-10}$ \\
+4   & 81.9  & 20.48 & 23.93 & $1.2\times10^{-8}$ \\
+16  & 219.9 & \textbf{13.74} & 17.72 & $2.3\times10^{-8}$ \\
+64  & 901.7 & 14.09 & 16.83 & $2.4\times10^{-8}$ \\
+128 & 2355.0 & 18.40 & \textbf{16.67} & $2.4\times10^{-8}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Two observations a reader should not have to reverse-engineer. Amortization is best
+at $M = 16$ (13.74\,ms/patient), not at the largest cohort; beyond $M \approx 64$
+the Metal lane degrades and at $M = 128$ the \textbf{CPU RNS lane is faster}
+(16.67 vs.\ 18.40\,ms/patient). The GPU advantage here is real but bounded, and it
+inverts at large cohorts. These figures are also contention-sensitive: the same
+$M{=}128$ Metal lane has measured between 18.0 and 56.2\,ms/patient, the latter
+while another process held the GPU. Only idle-machine numbers are reported.
+
+%------------------------------------------------------------------------------
+\subsection{Where the encrypted time actually went}
+\label{sec:encrypted-time}
+
+The encrypted path was profiled rather than assumed, and the result redirected the
+entire optimisation effort. Instrumenting the key-switch phases attributed only
+\textbf{4.3\%} of warm runtime to the fused Metal pipeline and left 91\%
+unaccounted. The cause was \code{poly\_mul\_as}, the ring multiply behind encrypt,
+decrypt, and Galois key generation, implemented as a schoolbook $O(N^2)$ expansion
+over \code{u128} --- roughly $1.8\times10^{8}$ modular operations per call at
+$N = 16384$. Measured primitives confirmed it exactly: 14 encrypt+decrypt pairs
+predicted 19.5\,s against 19.7\,s observed, and 13 Galois keys predicted 42.2\,s
+against the 45.2\,s observed setup.
+
+Routing that multiply through the existing $O(N \log N)$ RNS-NTT path
+(bit-exact against the schoolbook oracle, gated by
+\code{ring\_multiply\_ntt\_matches\_schoolbook}) produced:
+
+\begin{table}[ht]
+\centering
+\caption{Primitive speedups from replacing schoolbook ring multiply
+  ($N{=}16384$).}
+\label{tab:ntt-mul}
+\small
+\begin{tabular}{@{}lrrr@{}}
+\toprule
+Primitive & $O(N^2)$ & $O(N\log N)$ & Speedup \\
+\midrule
+Encrypt & 953\,ms & 41\,ms & $23\times$ \\
+Decrypt & 442\,ms & 10\,ms & $44\times$ \\
+One Galois key & 3249\,ms & 196\,ms & $17\times$ \\
+EVK setup (13 keys) & 45.2\,s & 4.0\,s & $11\times$ \\
+Full encrypted panel (warm, pre-hoist) & 21.7\,s & 3.15\,s & $6.9\times$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A second structural fix followed: hoisting rotate-and-sum out of the
+per-ciphertext loop (Section~\ref{sec:hoist}), then switching the production
+multiply from ct$\times$pt to ct$\times$ct with relinearization so the evaluator
+path matches HEPRS's cryptographic job.
+
+\begin{table}[ht]
+\centering
+\caption{Cryptographic FHE Engine evolution on a full 110k panel ($M{=}1$, $D{=}1$).}
+\label{tab:fhe-evol}
+\small
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{5.4cm}X@{}}
+\toprule
+Stage & Full 110k, $M{=}1$, $D{=}1$ \\
+\midrule
+CPU KS, 10-bit digits
+  & $\sim$66--67\,s (Phase~3 baseline; not re-measured) \\
+Metal MAC only, 10-bit digits
+  & $\sim$30\,s (Phase~4; resident EVK; not re-measured) \\
+Fused Metal + hybrid digits, $O(N^2)$ multiply
+  & 22.0\,s (Phase~5) \\
+Fused Metal + $O(N\log N)$, per-ciphertext fold
+  & 3.27\,s (pre-hoist, ct$\times$pt) \\
+Fused Metal + $O(N\log N)$, hoisted fold, ct$\times$pt
+  & 1.32\,s (prior headline; easier job) \\
+\textbf{Fused Metal + hoisted fold, ct$\times$ct + relin (4-limb)}
+  & \textbf{2.61\,s} (pre-match; $\|Q\|\approx 124$) \\
+\textbf{Fused Metal + hoisted fold, ct$\times$ct + relin (7-limb)}
+  & \textbf{5.41\,s} (HEPRS-matched $|Q|{=}217$; RSS 1.11\,GB) \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Peak resident set for the matched ct$\times$ct panel is \textbf{1.11\,GB}, with a
+one-time evaluation-key setup of \textbf{12.7\,s}
+(\file{results-ctct-memory-7limb.txt}). The step from 2.61\,s (4-limb) to 5.41\,s
+is the measured cost of the Metal-compatible $\approx$202-bit budget.
+
+%==============================================================================
+\section{Comparison with HEPRS (Knight et al., 2026)}
+\label{sec:heprs}
+
+The reference point is Knight~\textit{et~al.}~\cite{knight2026heprs}. We rebuilt
+their public MIT example under Lattigo on this M4 Max and ran \engpe{}'s
+ct$\times$ct path on the same CSV inputs (\file{src/heprs-headtohead.ts},
+\file{results-bgpucap/}).
+
+Both systems now encrypt genotypes \textbf{and} weights (ct$\times$ct +
+relinearization), fold once per individual, and run at a \textbf{matched depth
+budget}: HEPRS \code{PN13QP202pq} has $\log_2(QP)\approx 202$; \engpe{} uses seven
+Metal-eligible limbs with \textbf{$|Q| = 217$ bits} at $N = 8192$ (gate
+\longcode{fhe_basis_matches_heprs_qp_budget}). Primes are not bit-identical ---
+Lattigo's 33--34-bit moduli exceed Metal's $2^{31}$ limb limit --- but the
+security/depth envelope is matched (\file{PARAMETERS.md}).
+
+\begin{table}[ht]
+\centering
+\caption{Head-to-head comparison of HEPRS and \engpe{} on matched structure and
+  modulus budget.}
+\label{tab:heprs}
+\footnotesize
+\setlength{\tabcolsep}{3.5pt}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash}p{3.1cm}XX@{}}
+\toprule
+Configuration & HEPRS (this M4 Max, unless noted) & \engpe{} (this M4 Max) \\
+\midrule
+Weights
+  & Encrypted (ct$\times$ct + relin)
+  & \textbf{same} \\
+Example ring dim
+  & $N{=}8192$ (\code{PN13QP202pq})
+  & $N{=}8192$ \\
+Modulus budget
+  & $\log_2(QP)\approx 202$
+  & $\|Q\| = 217$ (7 Metal limbs) \\
+Algorithm structure
+  & accumulate, one fold~/~individual
+  & \textbf{same} (Section~\ref{sec:hoist}) \\
+Key-switches~/~individual (110k)
+  & 13 rotations (+ Lattigo relins)
+  & \textbf{14 relins + 13 rotations} (counted) \\
+\textbf{10k$\times$50, $N{=}8192$}
+  & \textbf{1.41\,s}, HeapSys $\approx$ 0.39\,GB
+  & \textbf{$\sim$10.5\,s warm}~/~$\sim$15.9\,s cold, RSS $\approx$ 2.7\,GB \\
+110k SNPs, 1 patient
+  & $\sim$10\,s, $\sim$3\,GB (published M1)
+  & \textbf{5.41\,s warm, 1.11\,GB} (7-limb FHE) \\
+10k SNPs $\times$ 1{,}146 (SNP-packed)
+  & not published at this panel
+  & \textbf{69.8\,s}, RSS $\approx$ 9.1\,GB (materialised; pre-match) \\
+1{,}146 patients, streamed patient-packed
+  & ---
+  & \textbf{$\sim$388\,MiB} @ 512 SNPs~/~\textbf{$\sim$1.4\,GB} @ 2k SNPs \\
+110k $\times$ $\sim$1{,}146
+  & 6\,min, $\sim$65\,GB (published Xeon)
+  & prefer patient-packed for memory \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+The \textbf{bold row} is the controlled comparison: identical published inputs,
+same machine, same $N$, matched crypto job \textbf{and} matched modulus budget.
+HEPRS remains faster on that panel; \engpe{} pays for Metal-wide limbs
+(\code{U256} host coeffs + $7\times$ NTT) and an on-device deployment shape.
+Fidelity is in Section~\ref{sec:crossval}.
+
+%------------------------------------------------------------------------------
+\subsection{One rotate-and-sum per patient, not one per ciphertext}
+\label{sec:hoist}
+
+Reading Algorithm~1 of~\cite{knight2026heprs} against an earlier draft exposed a
+plain inefficiency. HEPRS multiplies each of the $K$ genotype ciphertexts by its
+weight block, \textbf{accumulates them all first}, and calls \code{InnerSumLog()}
+once --- $\log_2(N/2)$ rotations per individual. The earlier \engpe{} draft folded
+every ciphertext, costing $K\log_2(N/2)$ rotations.
+
+At production that was $14\times 13 =$~\textbf{182} rotation key-switches per
+patient versus HEPRS's \textbf{13}. Hoisting is semantics-preserving
+(\code{score\_encrypted\_patient\_disease} in \file{ckks\_rns.rs}). With
+ct$\times$ct, each of the 14 products also needs a relinearization key-switch, so
+the counted cost is \textbf{27 key-switches per patient} (14 relin + 13 rotate)
+rather than 13 --- still far below the pre-hoist 182 rotations, and the structure
+of the fold matches~\cite{knight2026heprs}.
+
+%------------------------------------------------------------------------------
+\subsection{Packing as a tunable frontier}
+\label{sec:packing}
+
+Transposing the layout so that slot $p$ carries patient $p$ turns the PRS into
+\begin{equation}
+\label{eq:patient-pack}
+\mathrm{acc} \;=\; \sum_i \mathrm{Enc}(g_{\cdot,i}) \cdot w_i
+\end{equation}
+with $w_i$ a scalar broadcast across slots, so slot $p$ of the accumulator is
+patient $p$'s score. There is no horizontal sum: the rotation count is
+\textbf{exactly zero} and Galois keys are not needed at all. We implemented this
+(\file{native/src/packing.rs}) and gated it against the plaintext oracle for every
+patient.
+
+Measured per-ciphertext primitives at $N = 16384$ under the earlier ct$\times$pt
+path --- encrypt 57.9\,ms, ct$\times$pt 20.4\,ms --- projected the transposed
+layout to $\sim$\textbf{1.05\,s per patient}. That projection is superseded by the
+shipped \textbf{patient-packed streamed} evaluator
+(\longcode{evaluate_prs_patient_packed_napi}~/~
+\longcode{bench_patient_packed_synthetic_napi}): SNPs are encrypted and multiplied
+one at a time into a single accumulator, Galois key-switches are \textbf{zero}, and
+genotypes need not reside as an $M\times n_{\mathrm{snp}}$ matrix in the
+evaluator. On this M4 Max, a synthetic 1{,}146-patient cohort at $N{=}8192$
+measures \textbf{$\sim$388\,MiB} RSS at 512 SNPs and \textbf{$\sim$1.4\,GB} at
+2{,}000 SNPs (\file{results-packed-memproof.txt}) --- far below the
+\textbf{$\sim$9.1\,GB} of a na\"ive SNP-packed materialisation of 1{,}146$\times$10k
+(\file{results-cohort-example1146.txt}). Residual RSS growth with SNP count is
+dominated by Metal/host caches around relinearization, not by storing the panel;
+bounding those caches is follow-on work.
+
+The two layouts remain endpoints of a tunable frontier. A block-packed ciphertext
+carrying $P$ patients and $8192/P$ SNPs costs
+$\lceil n_{\mathrm{snp}} P / 8192\rceil \cdot \log_2(8192/P) / P$ key-switches per
+patient under a \textit{per-ciphertext} fold; with the hoisted fold of
+Section~\ref{sec:hoist} the deployed $P = 1$ SNP-packed layout costs
+$\log_2(N/2)$ rotations plus one relin per ciphertext. $P = N/2$ recovers the
+streamed patient-packed path (zero rotations). Both endpoints and the monotonicity
+are asserted in \code{block\_packing\_interpolates\_between\_layouts}.
+
+We suspect the $\sim$65\,GB in~\cite{knight2026heprs} is the cost of materialising
+a cohort-packed panel. We rebuilt and timed their public example on this machine
+(Section~\ref{sec:heprs}); we have not profiled their 1{,}146-patient clinical path
+(controlled-access data). Stage splits for our SNP-packed path (weight encrypt wall
++ patient-eval wall) are exposed via
+\code{evaluate\_prs\_encrypted\_staged\_napi}
+(\file{results-stages-matched.txt}).
+
+%------------------------------------------------------------------------------
+\subsection{Cross-implementation validation on the published HEPRS dataset}
+\label{sec:crossval}
+
+Every correctness figure elsewhere in this paper is measured against \engpe{}'s
+own plaintext oracle, which shares encoding code with the pipeline it validates.
+Knight~\textit{et~al.} released their example cohort under MIT licence ---
+10{,}001 features $\times$ 50 individuals from HAPGEN2, the ridge weights,
+\textbf{and their own plaintext PRS predictions} --- which permits a genuinely
+independent check. We ran their genotypes and their weights through \engpe{}'s
+\textbf{ct$\times$ct} encrypted pipeline at $N = 8192$
+(\file{src/heprs-crossvalidate.ts}).
+
+\begin{table}[ht]
+\centering
+\caption{Fidelity against plaintext and HEPRS published predictions
+  (10k$\times$50, $N{=}8192$; from \texttt{results-cv-matched.txt}).}
+\label{tab:cv}
+\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+Comparison & Max absolute error \\
+\midrule
+\engpe{} encrypted vs.\ double-precision dot product of the same inputs
+  & $2.8\times10^{-6}$ \\
+\engpe{} encrypted vs.\ HEPRS published prediction
+  & $3.6\times10^{-5}$ \\
+Double-precision dot product vs.\ HEPRS published prediction
+  & $3.646\times10^{-5}$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Homomorphic evaluation contributes roughly $3\times10^{-6}$ --- within the
+discrepancy imposed by their 6-decimal weight/prediction files --- and Pearson
+correlation between \engpe{}'s encrypted scores and their published predictions
+remains $r = 0.999999999$. The ridge intercept absent from the distributed files
+was recovered independently as $0.26158746$. Under the matched 7-limb basis, warm
+wall-clock for this panel on the M4 Max is \textbf{$\sim$10.5\,s}
+(cold $\approx$ 15.9\,s including key setup); their \code{PN13QP202pq} build on
+the same machine finishes in \textbf{1.41\,s} (Section~\ref{sec:heprs}).
+
+We regard this as the strongest correctness evidence in the paper, because it is
+the only result not validated against our own oracle. It does not reproduce their
+clinical finding: the schizophrenia cohort of 1{,}146 individuals comes from
+PsychENCODE~/~PGC under controlled access. No clinical claim is made here; the
+110{,}000-SNP figures use synthetic panels of matched size.
+
+%==============================================================================
+\section{Validation Gates}
+\label{sec:gates}
+
+Integrity checks include: sparse schoolbook negacyclic convolution gates;
+bit-identical async vs.\ sync ring outputs; multi-disease SIMD oracle checks at
+$\epsilon < 10^{-4}$; encrypted-path oracle checks; bit-identical Metal vs.\ CPU
+Galois key-switch (\longcode{assert_metal_keyswitch_matches_cpu}); and Phase~5
+fused hybrid oracle + aux-$P$ mod-down round-trip
+(\longcode{assert_fused_hybrid_keyswitch_matches_oracle}). The offline clinic
+path sets an explicit air-gap flag and performs no network I/O in the evaluation
+core.
+
+A precision gate only shows that the pipeline is \textit{accurate}; it does not
+show that the pipeline is \textit{what this paper describes}. A second suite
+(\file{native/src/audit\_gates.rs}) targets that gap directly, and each of its
+assertions corresponds to a claim made above:
+\begin{itemize}
+  \item \textbf{Ciphertexts are RLWE, not encoding.}
+        $c_0$ must not equal the encoded plaintext, $c_1$ must be non-zero, two
+        encryptions of one message must differ, and a \textit{wrong} secret key
+        must fail to recover the message (it does, by $\gg 1$ absolute error).
+        Companion gates confirm products remain key-bound (ct$\times$pt and
+        ct$\times$ct paths).
+  \item \textbf{Fresh noise exists and is bounded.}
+        Encrypting zero and decrypting yields the noise directly:
+        $\approx 2^{8}$ against a $2^{124}$ modulus. A ciphertext that decrypted
+        to exactly zero would indicate encoding rather than encryption.
+  \item \textbf{The transform-domain ring multiply is bit-exact.}
+        Replacing the schoolbook $O(N^2)$ multiply
+        (Section~\ref{sec:encrypted-time}) touched encrypt, decrypt, and key
+        generation at once, so it is gated by exact per-coefficient equality
+        against the schoolbook oracle across several degrees, plus a check that an
+        unregistered modulus still falls back correctly.
+  \item \textbf{Parameters stay inside a published security envelope.}
+        The production set is asserted inside the HE Standard 128-bit
+        ceiling~\cite{hestandard2018}, \textit{and} reduced-degree configurations
+        are asserted to be correctly flagged \textbf{outside} it, so a test-only
+        lane can never be mistaken for a deployable one
+        (Section~\ref{sec:security}).
+  \item \textbf{Key-switching performs the real automorphism.}
+        Asserted against the explicit $\varphi_5$ slot permutation, and separately
+        asserted \textit{not} to be the identity.
+  \item \textbf{The fused Metal pipeline actually executes.}
+        Atomic counters record fused versus fallback limb key-switches; the gate
+        requires every limb to take the fused path \textit{and} to remain
+        bit-identical to the CPU oracle.
+  \item \textbf{The key-switch count behind Section~\ref{sec:heprs} is measured,
+        not derived.}
+        After the hoist and the move to ct$\times$ct, the full 110k panel costs
+        \textbf{14 relinearizations + 13 rotations = 27 key-switches per patient}
+        (108 limb ops at 4 RNS limbs), confirmed by
+        \code{audit\_full\_panel\_keyswitch\_count\_matches\_paper}
+        (\code{--ignored}).
+  \item \textbf{ct$\times$ct + relin is precision-gated through production degree.}
+        Unit tests cover single multiplies through $N{=}8192$ and a two-ciphertext
+        PRS fold; cross-validation against~\cite{knight2026heprs}'s published
+        predictions is Section~\ref{sec:crossval}.
+  \item \textbf{Evaluation keys cannot alias.}
+        Three independent key sets sharing $(N, k)$, on both backends
+        (Section~\ref{sec:fused}).
+  \item \textbf{The hybrid gadget is real and $P$ is well formed.}
+        Every aux prime is $< 2^{31}$, NTT-eligible, distinct from all $q_i$, and
+        $P^{-1} \bmod q_i$ is verified to be a genuine inverse. Digit count scales
+        with $\|Q\|$ (11 digits at $\|Q\| = 217$ with 20-bit gadgets).
+  \item \textbf{FHE modulus matches the HEPRS QP budget.}
+        Seven Metal limbs at $N = 8192$ yield $\|Q\| = 217$ bits, inside the HE
+        ceiling of 218 and comparable to Lattigo \code{PN13QP202pq}
+        (\code{fhe\_basis\_matches\_heprs\_qp\_budget}).
+\end{itemize}
+
+These gates were written as an adversarial pre-publication audit and were not all
+green when first run. They surfaced the evaluation-key aliasing defect of
+Section~\ref{sec:fused}, a stale key-switch noise budget left behind by the move
+to a 20-bit gadget, the reduced-degree security trap of
+Section~\ref{sec:security}, the quadratic ring multiply of
+Section~\ref{sec:encrypted-time}, and an i128 overflow in relinearization-key
+generation that destroyed ct$\times$ct precision at large $N$. The suite is 56+
+Rust tests (heavier measurement gates marked \code{\#[ignore]}) and the TypeScript
+gates, stable across repeated runs.
+
+%==============================================================================
+\section{Deployment}
+\label{sec:deploy}
+
+\engpe{} ships a Tauri desktop ``stateless clinic'' that invokes the native sweep
+locally. Synthetic cohorts are generated on-device; ring or encrypted evaluation can
+be selected according to the threat model. The UI does not require network access
+for a completed sweep.
+
+%==============================================================================
+\section{Conclusion and Future Work}
+\label{sec:conclusion}
+
+\engpe{} separates a high-throughput \textbf{ring evaluation} path
+(13.7\,ms/patient amortized at its $M{=}16$ optimum for 110k SNPs) from a
+correctness-bearing \textbf{RLWE FHE} path that matches HEPRS's cryptographic job
+and modulus budget: encrypted genotypes \textit{and} weights, ct$\times$ct with
+relinearization, one hoisted rotate-and-sum per individual, and seven Metal limbs
+with $\|Q\| = 217$ bits (\textbf{5.41\,s} warm~/~1.11\,GB RSS at 110k$\times$1 on
+an M4 Max).
+
+Measured against Knight~\textit{et~al.}~\cite{knight2026heprs} on the same machine
+and their MIT example ($N{=}8192$, ct$\times$ct, \textbf{matched $\approx$202-bit
+modulus budget}): their \code{PN13QP202pq} build finishes in \textbf{1.41\,s}; warm
+\engpe{} finishes in \textbf{$\sim$10.5\,s} ($r = 0.999999999$ vs.\ their preds).
+We are not faster. The presentable claim is \textbf{on-device memory +
+Metal-compatible parameter parity}: $|Q| = 217$ bits with seven limbs $< 2^{31}$,
+and a streamed patient-packed evaluator that keeps $\sim$1{,}146-patient cohorts
+near \textbf{0.4--1.4\,GB}. Packed RSS still creeps with SNP count (host/Metal
+caches); bounding that is deferred.
+
+Five limitations are worth stating plainly. The GPU advantage on the ring engine
+inverts above $M \approx 64$. Evaluation keys are memoised per degree for the
+process lifetime. The extended $PQ$~/~Stage-D mod-down machinery is built and gated
+but not engaged in production. Correctness against an independent oracle is
+Section~\ref{sec:crossval} only; 110k panels are synthetic. No clinical claim is
+made: PsychENCODE/PGC data behind~\cite{knight2026heprs} was not used.
+
+Methodologically, profiling redirected this work more than any kernel did: a
+quadratic host multiply was 90\% of encrypted runtime; reading their Algorithm~1
+cut rotations from 182 to 13 per patient; matching ct$\times$ct exposed an i128
+overflow in relin-key generation that precision gates on ct$\times$pt would never
+have caught.
+
+The most valuable next experiment is bounding Metal/host caches so patient-packed
+RSS stays flat as $n_{\mathrm{snp}}$ grows to 110k, then measuring that path
+end-to-end against their 1{,}146-patient server figure under matched stage splits.
+Beyond that: keep digit buffers resident across rotations, engage Stage-D mod-down
+for deeper circuits, and obtain a bit-precise $\lambda$ from the lattice
+estimator.
+
+%==============================================================================
+\bibliographystyle{plainnat}
+\bibliography{paper}
+
+\end{document}

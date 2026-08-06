@@ -1,0 +1,26 @@
+{
+  "name": "engpe",
+  "version": "0.1.0",
+  "description": "Edge-Native Genomic Privacy Engine — CKKS Polygenic Risk Score on Apple Silicon FHE",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "build:native": "cd native && CARGO_TARGET_DIR=target cargo build --release && cp target/release/libengpe_native.dylib ../native.node && codesign -s - ../native.node",
+    "generate:data": "tsc && node dist/generate-synthetic.js",
+    "test": "vitest run",
+    "test:native": "cd native && CARGO_TARGET_DIR=target cargo test --release",
+    "test:gates": "vitest run src/validation-gates.test.ts clinic/src/airgap.test.ts",
+    "start": "tsc && node dist/index.js",
+    "bench": "tsc && node dist/benchmark.js",
+    "bench:quick": "tsc && node dist/benchmark.js 1",
+    "clinic:dev": "cd clinic && npm run tauri dev"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.2",
+    "typescript": "^5.7.0",
+    "vitest": "^3.1.0"
+  }
+}

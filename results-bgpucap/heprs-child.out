@@ -1,0 +1,6 @@
+Using post-quantum parameters...
+Alloc = 1 MiB	TotalAlloc = 1 MiB	HeapSys = 3 MiB	NumGC = 0
+Input Encrypt success
+Alloc = 327 MiB	TotalAlloc = 638 MiB	HeapSys = 415 MiB	NumGC = 10
+Model Encrypt success
+Alloc = 337 MiB	TotalAlloc = 648 MiB	HeapSys = 415 MiB	NumGC = 10

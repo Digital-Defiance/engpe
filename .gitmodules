@@ -1,0 +1,3 @@
+[submodule "heprs-upstream"]
+	path = heprs-upstream
+	url = https://github.com/gersteinlab/HEPRS.git

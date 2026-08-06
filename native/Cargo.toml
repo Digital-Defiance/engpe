@@ -1,0 +1,25 @@
+[package]
+name = "engpe-native"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+napi = { version = "2", features = ["napi6"] }
+napi-derive = "2"
+rayon = "1.10"
+rustfft = "6.2"
+getrandom = "0.2"
+ethnum = "1.5"
+
+[build-dependencies]
+napi-build = "2"
+cc = "1.2"
+
+[profile.release]
+lto = true
+opt-level = 3
+codegen-units = 1
+strip = "symbols"

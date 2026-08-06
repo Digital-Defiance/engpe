@@ -1,0 +1,15 @@
+
+gpu        avg 0.0% peak 0.0%
+cpu        avg 23.1% peak 23.1%
+memory     avg 47.9% peak 47.9%
+gpu-mem    in use avg 2.1 GiB peak 2.1 GiB
+renderer   avg 0.0% peak 0.0%
+tiler      avg 0.0% peak 0.0%
+gpu-mhz    avg 338 MHz peak 338 MHz
+cpu-mhz    avg 799 MHz peak 799 MHz
+e-mhz      avg 854 MHz peak 854 MHz
+p-mhz      avg 744 MHz peak 744 MHz
+wired      avg 5.8 GiB peak 5.8 GiB
+compress   avg 9.4 GiB peak 9.4 GiB
+swap       avg 1008 MiB peak 1008 MiB
+real       0.254807 s

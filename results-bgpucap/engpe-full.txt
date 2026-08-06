@@ -1,0 +1,68 @@
+npm warn exec The following package was not found and will be installed: tsx@4.23.9
+Metal: Initialized with Apple M4 Max (40 GPU cores)
+Metal: Max buffer size: 39813 MB
+Metal: Warning - shaders not loaded, GPU compute unavailable
+Metal: Loaded shaders from /Volumes/Code/engpe/native/fhe_shaders.metallib
+Metal: Available kernels: keyswitch_mac_batch modmul_scalar modsub_batch modadd_batch modsub_direct_batch ntt_forward_batch modadd_direct_batch modmul_direct_batch modneg_batch ntt_inverse_stage ntt_inverse_scale ntt_bit_reverse mod_down_batch ntt_twist ntt_to_montgomery modmul_batch ntt_inverse_batch ntt_from_montgomery ntt_forward_stage 
+Metal: Created modmul pipeline (max threads: 1024)
+Metal: Created ntt_forward_stage pipeline
+Metal: Created keyswitch_mac_batch pipeline
+Metal: Created mod_down_batch pipeline
+Metal: NTT pipelines - to_mont:1 bitrev:1 fwd_stage:1 inv_stage:1 inv_scale:1 from_mont:1 twist:1 ks_mac:1
+{
+  "comparison": "HEPRS example_data head-to-head (this machine)",
+  "panel": {
+    "patients": 50,
+    "features": 10001,
+    "polyDegree": 8192
+  },
+  "engpe": {
+    "weights": "encrypted (ct×ct + relin)",
+    "backend": "metal",
+    "preferMetal": true,
+    "coldMs": 6533.429667,
+    "warmMedianMs": 4483.461832999999,
+    "msPerPatientWarm": 89.66923665999998,
+    "maxAbsErrorVsPlainOracle": 0.000004553702045551056,
+    "rssAfterMiB": 1476,
+    "rssDeltaMiB": 1375.6
+  },
+  "heprsLocal": {
+    "PN12QP125": {
+      "wallMs": 770,
+      "heapSysMiB": 227,
+      "note": "param 0, N=4096"
+    },
+    "PN13QP202pq": {
+      "wallMs": 1432,
+      "heapSysMiB": 403,
+      "note": "param 1, N=8192"
+    }
+  },
+  "paramGap": {
+    "engpeLogQ": 124,
+    "heprsLogQP_PN13": 202,
+    "note": "ENGPE keeps |Q|≈124 in u128 CRT; PRS is depth-1 so 202 is not required for correctness, but is not parameter-matched."
+  }
+}
+
+gpu        avg 0.0% peak 0.0%
+gpu-pid    pid 73434 avg 0.0% peak 0.0%
+cpu        avg 55.3% peak 100.0%
+memory     avg 49.4% peak 50.7%
+gpu-mem    in use avg 2.4 GiB peak 2.9 GiB
+renderer   avg 0.0% peak 0.0%
+tiler      avg 0.0% peak 0.0%
+gpu-mhz    avg 339 MHz peak 444 MHz
+cpu-mhz    avg 1388 MHz peak 1647 MHz
+e-mhz      avg 918 MHz peak 1062 MHz
+p-mhz      avg 1859 MHz peak 2232 MHz
+gpu-pwr    avg 1 W peak 1 W
+cpu-pwr    avg 15 W peak 32 W
+dram-pwr   avg 1 W peak 2 W
+e-pwr      avg 0 W peak 1 W
+p-pwr      avg 14 W peak 31 W
+wired      avg 6.1 GiB peak 6.6 GiB
+compress   avg 9.4 GiB peak 9.4 GiB
+swap       avg 1008 MiB peak 1008 MiB
+real       18.199090 s
